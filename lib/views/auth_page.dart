@@ -75,7 +75,7 @@ class _AuthPageState extends State<AuthPage> {
             ),
           ),
 
-          // Animated card (login ↔ register)
+          // Animated card (login - register)
           Align(
             alignment: Alignment.bottomCenter,
             child: Align(

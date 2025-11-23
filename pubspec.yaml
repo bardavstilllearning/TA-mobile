@@ -10,55 +10,49 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # UI & Navigation
-  cupertino_icons: ^1.0.6
-
-  # HTTP & API
-  http: ^1.1.0
-
-  # Local Storage
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.6 # Ikon Gaya IOS
+  http: ^1.1.0 # API
+  crypto: ^3.0.3 # Enskripsi
+  url_launcher: ^6.2.1 # URL Eksternal
+  image_picker: ^1.0.4 # Foto
+  sensors_plus: ^4.0.0 # Sensor
+  intl: ^0.20.2 # Konversi Waktu
+  flutter_rating_bar: ^4.0.1 # Rating Dinamis
+  flutter_local_notifications: ^17.0.0 # Notification
+  # Lokasi
+  geolocator: ^10.1.0
+  geocoding: ^3.0.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  # Local Database
   shared_preferences: ^2.2.2
   sqflite: ^2.3.0
   path: ^1.8.3
-
-  # Encryption
-  crypto: ^3.0.3
-
-  # Location & Maps
-  geolocator: ^10.1.0
-  google_maps_flutter: ^2.5.0
-  url_launcher: ^6.2.1 # untuk buka WhatsApp
-
-  # Images
-  image_picker: ^1.0.4
-
-  # Sensors (untuk shake detection)
-  sensors_plus: ^4.0.0
-
-  # Date & Time
-  intl: ^0.18.1
-
-  # Rating
-  flutter_rating_bar: ^4.0.1
-
-  # Others
-  path_provider: ^2.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
-
+  # Assets Location
   assets:
     - assets/images/
-
+  # Fonts
   fonts:
     - family: Poppins
       fonts:
         - asset: assets/fonts/Poppins-Regular.ttf
         - asset: assets/fonts/Poppins-SemiBold.ttf
           weight: 600
+
+# Apps Icon
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/Icon.png"
+  remove_alpha_ios: true

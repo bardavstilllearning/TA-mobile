@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../widgets/custom_snackbar.dart';
 import '../services/api_service.dart';
-import '../utils/encryption_helper.dart';
-import '../utils/session_manager.dart';
+import '../utils/helpers/encryption_helper.dart';
+import '../utils/session/session_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../views/shake_verification_page.dart';
 
@@ -22,6 +22,15 @@ class _RegisterCardState extends State<RegisterCard> {
   bool showPassword1 = false;
   bool showPassword2 = false;
   bool isLoading = false;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    usernameController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _validateAndRegister() async {
     if (emailController.text.isEmpty ||
@@ -54,6 +63,16 @@ class _RegisterCardState extends State<RegisterCard> {
       return;
     }
 
+    if (passwordController.text.length < 6) {
+      CustomSnackbar.show(
+        context,
+        message: 'Password minimal 6 karakter!',
+        backgroundColor: Colors.red,
+      );
+      return;
+    }
+
+    if (!mounted) return;
     setState(() => isLoading = true);
 
     try {
@@ -67,41 +86,52 @@ class _RegisterCardState extends State<RegisterCard> {
         password: encryptedPassword,
       );
 
+      debugPrint('Register response: $response');
+
       if (response['success'] == true) {
-        if (mounted) {
-          // Simpan token dan user ID
-          await SessionManager.saveLoginTime();
-          if (response['user'] != null && response['user']['id'] != null) {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setInt('user_id', response['user']['id']);
-            await prefs.setString('auth_token', response['token']);
-          }
+        // Sesi dimulai
+        await SessionManager.saveLoginTime();
 
-          CustomSnackbar.show(
-            context,
-            message: 'Registrasi berhasil! Lakukan verifikasi keamanan.',
-            backgroundColor: Colors.green,
-          );
-
-          // Redirect ke shake verification
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ShakeVerificationPage()),
-          );
+        if (response['user'] != null && response['user']['id'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('user_id', response['user']['id']);
+          await prefs.setString(
+              'auth_token', response['token'] ?? 'dummy_token');
         }
+
+        if (!mounted) return;
+        CustomSnackbar.show(
+          context,
+          message: 'Registrasi berhasil! Lakukan verifikasi keamanan!',
+          backgroundColor: Colors.green,
+        );
+
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ShakeVerificationPage(),
+          ),
+        );
       } else {
         throw response['message'] ?? 'Registrasi gagal';
       }
     } catch (e) {
+      debugPrint('Register error: $e');
+
       if (mounted) {
         CustomSnackbar.show(
           context,
-          message: 'Error: $e',
+          message: 'Error: $e!',
           backgroundColor: Colors.red,
         );
       }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -131,7 +161,7 @@ class _RegisterCardState extends State<RegisterCard> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              const Text(
                 "Buat Akun di ",
                 style: TextStyle(
                   fontSize: 20,
@@ -141,7 +171,7 @@ class _RegisterCardState extends State<RegisterCard> {
                 ),
               ),
               Image.asset('assets/images/Icon.png', width: 40, height: 40),
-              Text(
+              const Text(
                 " KerahBiru",
                 style: TextStyle(
                   fontSize: 20,
@@ -150,7 +180,7 @@ class _RegisterCardState extends State<RegisterCard> {
                   fontFamily: 'Poppins',
                 ),
               ),
-              Text(
+              const Text(
                 " !",
                 style: TextStyle(
                   fontSize: 20,
@@ -173,6 +203,7 @@ class _RegisterCardState extends State<RegisterCard> {
           const SizedBox(height: 24),
           TextField(
             controller: usernameController,
+            enabled: !isLoading,
             decoration: InputDecoration(
               labelText: "Nama Lengkap",
               labelStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 13),
@@ -181,11 +212,28 @@ class _RegisterCardState extends State<RegisterCard> {
               ),
               filled: true,
               fillColor: const Color(0xFFF9F9F9),
+              // // border inputan
+              // enabledBorder: OutlineInputBorder(
+              //   borderRadius: BorderRadius.circular(12),
+              //   borderSide: const BorderSide(
+              //     color: Color(0xFFCCCCCC),
+              //     width: 1.3,
+              //   ),
+              // ),
+              // // border inputan on focus
+              // focusedBorder: OutlineInputBorder(
+              //   borderRadius: BorderRadius.circular(12),
+              //   borderSide: const BorderSide(
+              //     color: Color(0xFF4A90E2), // border saat fokus
+              //     width: 1.8,
+              //   ),
+              // ),
             ),
           ),
           const SizedBox(height: 14),
           TextField(
             controller: emailController,
+            enabled: !isLoading,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
               labelText: "Email",
@@ -200,6 +248,7 @@ class _RegisterCardState extends State<RegisterCard> {
           const SizedBox(height: 14),
           TextField(
             controller: passwordController,
+            enabled: !isLoading,
             obscureText: !showPassword1,
             decoration: InputDecoration(
               labelText: "Kata Sandi",
@@ -223,6 +272,7 @@ class _RegisterCardState extends State<RegisterCard> {
           const SizedBox(height: 14),
           TextField(
             controller: confirmPasswordController,
+            enabled: !isLoading,
             obscureText: !showPassword2,
             decoration: InputDecoration(
               labelText: "Ulangi Kata Sandi",
@@ -276,7 +326,7 @@ class _RegisterCardState extends State<RegisterCard> {
           ),
           const SizedBox(height: 18),
           GestureDetector(
-            onTap: widget.onSwitch,
+            onTap: isLoading ? null : widget.onSwitch,
             child: const Text.rich(
               TextSpan(
                 text: "Sudah punya akun? ",

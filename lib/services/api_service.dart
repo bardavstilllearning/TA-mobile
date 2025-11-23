@@ -2,24 +2,25 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class ApiService {
-  // 🔧 GANTI URL INI DENGAN URL LARAVEL KAMU
-  static const String baseUrl = 'http://192.168.18.37:8000/api'; // ✅ GANTI IP
+  // ✅ Gunakan dari config
+  static String get baseUrl => AppConfig.API_BASE_URL;
 
-  // Helper buat ambil token dari SharedPreferences
+  // Helper untuk ambil token
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
 
-  // Helper buat simpan token
+  // Helper untuk simpan token
   static Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
   }
 
-  // Helper buat hapus token (logout)
+  // Helper untuk hapus token
   static Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
@@ -57,10 +58,10 @@ class ApiService {
         }),
       );
 
-      print('Register Response: ${response.body}');
+      print('📤 Register Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
-      print('Register error: $e');
+      print('❌ Register error: $e');
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
@@ -82,7 +83,7 @@ class ApiService {
         }),
       );
 
-      print('Login Response: ${response.body}');
+      print('📤 Login Response: ${response.body}');
       final data = jsonDecode(response.body);
 
       if (data['success'] == true) {
@@ -92,7 +93,7 @@ class ApiService {
 
       return data;
     } catch (e) {
-      print('Login error: $e');
+      print('❌ Login error: $e');
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
@@ -110,8 +111,10 @@ class ApiService {
       );
 
       await _clearToken();
+      print('📤 Logout successful');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Logout error: $e');
       return {'success': false, 'message': 'Logout error: $e'};
     }
   }
@@ -138,8 +141,11 @@ class ApiService {
           'longitude': longitude,
         }),
       );
+
+      print('📤 Complete Profile Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Complete profile error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -159,8 +165,11 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       );
+
+      print('📤 Get Profile Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Get profile error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -195,8 +204,11 @@ class ApiService {
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+
+      print('📤 Update Profile Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Update profile error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -230,10 +242,10 @@ class ApiService {
         },
       );
 
-      print('Workers Response: ${response.body}');
+      print('📤 Workers Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
-      print('Workers error: $e');
+      print('❌ Workers error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -249,8 +261,11 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       );
+
+      print('📤 Worker Detail Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Worker detail error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -265,7 +280,6 @@ class ApiService {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
-
       final response = await http.post(
         Uri.parse('$baseUrl/orders'),
         headers: {
@@ -280,8 +294,10 @@ class ApiService {
           'time_slot': timeSlot,
         }),
       );
+      print('📤 Create Order Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Create order error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -290,7 +306,6 @@ class ApiService {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
-
       final response = await http.get(
         Uri.parse('$baseUrl/orders?user_id=$userId'),
         headers: {
@@ -299,11 +314,10 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       );
-
-      print('Orders Response: ${response.body}');
+      print('📤 Orders Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
-      print('Orders error: $e');
+      print('❌ Orders error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -315,7 +329,7 @@ class ApiService {
     try {
       final token = await _getToken();
       final response = await http.post(
-        Uri.parse('$baseUrl/orders/$orderId/status'),
+        Uri.parse('$baseUrl/orders/orderId/status'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -323,8 +337,10 @@ class ApiService {
         },
         body: jsonEncode({'status': status}),
       );
+      print('📤 Update Order Status Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Update order status error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -335,10 +351,13 @@ class ApiService {
   }) async {
     try {
       final token = await _getToken();
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/orders/$orderId/photo-before'),
-      );
+
+      // ✅ FIX: Proper URL construction
+      final url = '$baseUrl/orders/$orderId/photo-before';
+
+      print('📤 Uploading to: $url'); // Debug
+
+      var request = http.MultipartRequest('POST', Uri.parse(url));
 
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
@@ -346,8 +365,11 @@ class ApiService {
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+
+      print('📤 Upload Photo Before Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Upload photo before error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -358,10 +380,13 @@ class ApiService {
   }) async {
     try {
       final token = await _getToken();
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/orders/$orderId/photo-after'),
-      );
+
+      // ✅ FIX: Proper URL construction
+      final url = '$baseUrl/orders/$orderId/photo-after';
+
+      print('📤 Uploading to: $url'); // Debug
+
+      var request = http.MultipartRequest('POST', Uri.parse(url));
 
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
@@ -369,8 +394,11 @@ class ApiService {
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+
+      print('📤 Upload Photo After Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Upload photo after error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -383,6 +411,7 @@ class ApiService {
     try {
       final token = await _getToken();
       final response = await http.post(
+        // ✅ FIX: URL yang benar
         Uri.parse('$baseUrl/orders/$orderId/review'),
         headers: {
           'Content-Type': 'application/json',
@@ -394,19 +423,19 @@ class ApiService {
           'review': review,
         }),
       );
+      print('📤 Submit Review Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Submit review error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
 
-  // ========== GAMIFICATION ENDPOINTS ==========
-
+// ========== GAMIFICATION ENDPOINTS ==========
   static Future<Map<String, dynamic>> shakeForPoints() async {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
-
       final response = await http.post(
         Uri.parse('$baseUrl/shake'),
         headers: {
@@ -416,8 +445,11 @@ class ApiService {
         },
         body: jsonEncode({'user_id': userId}),
       );
+
+      print('📤 Shake Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Shake error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -426,7 +458,6 @@ class ApiService {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
-
       final response = await http.get(
         Uri.parse('$baseUrl/gamification/status?user_id=$userId'),
         headers: {
@@ -435,8 +466,11 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       );
+
+      print('📤 Gamification Status Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Gamification status error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -445,7 +479,6 @@ class ApiService {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
-
       final response = await http.get(
         Uri.parse('$baseUrl/vouchers?user_id=$userId'),
         headers: {
@@ -454,8 +487,11 @@ class ApiService {
           'Authorization': 'Bearer $token',
         },
       );
+
+      print('📤 Vouchers Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Vouchers error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -467,7 +503,6 @@ class ApiService {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
-
       final response = await http.post(
         Uri.parse('$baseUrl/profile/preferences'),
         headers: {
@@ -481,8 +516,11 @@ class ApiService {
           if (timezone != null) 'preferred_timezone': timezone,
         }),
       );
+
+      print('📤 Update Preferences Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Update preferences error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }
@@ -491,7 +529,6 @@ class ApiService {
     try {
       final token = await _getToken();
       final userId = await _getUserId();
-
       final response = await http.post(
         Uri.parse('$baseUrl/verify-shake'),
         headers: {
@@ -502,8 +539,31 @@ class ApiService {
         body: jsonEncode({'user_id': userId}),
       );
 
+      print('📤 Verify Shake Response: ${response.body}');
       return jsonDecode(response.body);
     } catch (e) {
+      print('❌ Verify shake error: $e');
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  // ========== REVIEW ENDPOINTS ==========
+  static Future<Map<String, dynamic>> getWorkerReviews(int workerId) async {
+    try {
+      final token = await _getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/workers/$workerId/reviews'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('📤 Worker Reviews Response: ${response.body}');
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('❌ Worker reviews error: $e');
       return {'success': false, 'message': 'Error: $e'};
     }
   }

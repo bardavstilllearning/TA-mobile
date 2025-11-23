@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'dart:io';
 import '../../../services/api_service.dart';
 import '../../../widgets/custom_snackbar.dart';
+import '../../map_picker_page.dart'; // ✅ Import MapPickerPage
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -22,7 +25,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   bool isLoading = true;
   bool isSaving = false;
+  bool isLoadingLocation = false;
   String? currentPhotoUrl;
+
+  // ✅ NEW: Location data
+  double? latitude;
+  double? longitude;
 
   @override
   void initState() {
@@ -43,10 +51,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
           phoneC.text = user['phone'] ?? '';
           addressC.text = user['address'] ?? '';
           currentPhotoUrl = user['photo'];
+          latitude = user['latitude'] != null
+              ? double.tryParse(user['latitude'].toString())
+              : null;
+          longitude = user['longitude'] != null
+              ? double.tryParse(user['longitude'].toString())
+              : null;
         });
       }
     } catch (e) {
-      print('Error loading profile: $e');
+      debugPrint('Error loading profile: $e');
     } finally {
       setState(() => isLoading = false);
     }
@@ -56,6 +70,103 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
       setState(() => _image = File(picked.path));
+    }
+  }
+
+  // ✅ NEW: Get current location
+  Future<void> _getCurrentLocation() async {
+    setState(() => isLoadingLocation = true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw 'Layanan lokasi tidak aktif. Mohon aktifkan GPS.';
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw 'Izin lokasi ditolak';
+        }
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      if (mounted) {
+        setState(() {
+          latitude = position.latitude;
+          longitude = position.longitude;
+        });
+
+        // Get address from coordinates
+        await _getAddressFromCoordinates(position.latitude, position.longitude);
+
+        CustomSnackbar.show(
+          context,
+          message: 'Lokasi berhasil didapatkan! ✓',
+          backgroundColor: Colors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackbar.show(
+          context,
+          message: 'Error: $e',
+          backgroundColor: Colors.red,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoadingLocation = false);
+      }
+    }
+  }
+
+  // ✅ NEW: Reverse geocoding
+  Future<void> _getAddressFromCoordinates(double lat, double lng) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        final place = placemarks[0];
+        final address =
+            '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}, ${place.administrativeArea}';
+        setState(() {
+          addressC.text = address;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Reverse geocoding error: $e');
+    }
+  }
+
+  // ✅ NEW: Open map picker
+  Future<void> _openMapPicker() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapPickerPage(
+          initialLat: latitude,
+          initialLng: longitude,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        latitude = result['latitude'];
+        longitude = result['longitude'];
+        addressC.text = result['address'];
+      });
+
+      CustomSnackbar.show(
+        context,
+        message: 'Lokasi berhasil dipilih dari peta! ✓',
+        backgroundColor: Colors.green,
+      );
     }
   }
 
@@ -72,17 +183,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => isSaving = true);
 
     try {
-      print('Uploading with name: ${nameC.text}'); // ✅ Debug
-      print('Photo selected: ${_image?.path ?? "no photo"}'); // ✅ Debug
-
       final response = await ApiService.updateProfile(
         name: nameC.text,
         phone: phoneC.text,
         address: addressC.text,
         photo: _image,
       );
-
-      print('Update response: $response'); // ✅ Debug
 
       if (response['success'] == true) {
         if (mounted) {
@@ -92,15 +198,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
             backgroundColor: Colors.green,
           );
 
-          // ✅ Delay sedikit sebelum pop biar user lihat snackbar
           await Future.delayed(const Duration(milliseconds: 500));
-          Navigator.pop(context, true); // ✅ Return true untuk trigger refresh
+          Navigator.pop(context, true);
         }
       } else {
         throw response['message'] ?? 'Gagal update profile';
       }
     } catch (e) {
-      print('Error updating profile: $e'); // ✅ Debug
       if (mounted) {
         CustomSnackbar.show(
           context,
@@ -187,7 +291,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _buildField(
             label: "Email",
             controller: emailC,
-            enabled: false, // Email tidak bisa diubah
+            enabled: false,
             keyboard: TextInputType.emailAddress,
           ),
           _buildField(
@@ -196,6 +300,109 @@ class _EditProfilePageState extends State<EditProfilePage> {
             keyboard: TextInputType.phone,
           ),
           _buildField(label: "Alamat", controller: addressC, maxLines: 2),
+
+          const SizedBox(height: 16),
+
+          // ✅ Location Buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isLoadingLocation ? null : _getCurrentLocation,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(
+                      color: latitude != null
+                          ? Colors.green
+                          : const Color(0xFF4A70A9),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: isLoadingLocation
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          latitude != null
+                              ? Icons.check_circle
+                              : Icons.my_location,
+                          color: latitude != null
+                              ? Colors.green
+                              : const Color(0xFF4A70A9),
+                        ),
+                  label: Text(
+                    'Lokasi Saya',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      color: latitude != null
+                          ? Colors.green
+                          : const Color(0xFF4A70A9),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _openMapPicker,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Color(0xFF4A70A9)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.map,
+                    color: Color(0xFF4A70A9),
+                  ),
+                  label: const Text(
+                    'Pilih di Peta',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      color: Color(0xFF4A70A9),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (latitude != null && longitude != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green, width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on, color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Lokasi: ${latitude!.toStringAsFixed(6)}, ${longitude!.toStringAsFixed(6)}',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 11,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           const SizedBox(height: 25),
           _saveBtn(context),

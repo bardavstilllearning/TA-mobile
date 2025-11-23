@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../widgets/custom_snackbar.dart';
-import '../views/home_page.dart';
+import '../views/start_page.dart';
 import '../views/complete_profil_page.dart';
 import '../services/api_service.dart';
-import '../utils/encryption_helper.dart';
-import '../utils/session_manager.dart';
+import '../utils/helpers/encryption_helper.dart';
+import '../utils/session/session_manager.dart';
 import '../views/shake_verification_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -60,7 +60,7 @@ class _LoginCardState extends State<LoginCard> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Login berhasil!',
+            message: 'Berhasil memulai sesi!',
             backgroundColor: Colors.green,
           );
 
@@ -76,9 +76,8 @@ class _LoginCardState extends State<LoginCard> {
           );
         }
       } else if (response['needs_shake_verification'] == true) {
-        // User belum verified, redirect ke shake verification
+        // Verifikasi dulu buat yang baru regist
         if (mounted) {
-          // Simpan token dan user ID dulu
           if (response['user'] != null && response['user']['id'] != null) {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setInt('user_id', response['user']['id']);
@@ -94,7 +93,7 @@ class _LoginCardState extends State<LoginCard> {
 
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const ShakeVerificationPage()),
+            MaterialPageRoute(builder: (_) => ShakeVerificationPage()),
           );
         }
       } else {
@@ -104,7 +103,7 @@ class _LoginCardState extends State<LoginCard> {
       if (mounted) {
         CustomSnackbar.show(
           context,
-          message: 'Error: $e',
+          message: 'Error: $e!',
           backgroundColor: Colors.red,
         );
       }
@@ -171,7 +170,7 @@ class _LoginCardState extends State<LoginCard> {
           ),
           const SizedBox(height: 4),
           const Text(
-            "Masuk untuk melanjutkan",
+            "Mulai sesi untuk melanjutkan",
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey,

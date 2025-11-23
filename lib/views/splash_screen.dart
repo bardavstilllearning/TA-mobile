@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'auth_page.dart';
-import 'home_page.dart';
-import '../utils/session_manager.dart';
+import 'start_page.dart';
+import '../utils/session/session_manager.dart';
 import 'complete_profil_page.dart';
+import '../../widgets/custom_snackbar.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -31,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Cek session setelah splash
+    // Cek session
     _checkSession();
   }
 
@@ -65,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
         ),
       );
     } else {
-      // Session tidak valid, tampilkan pesan
+      // Session tidak valid
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
@@ -83,14 +84,12 @@ class _SplashScreenState extends State<SplashScreen>
         ),
       );
 
-      // Tampilkan snackbar jika session expired
+      // Sesi habis
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sesi telah habis, silakan login kembali'),
-              backgroundColor: Colors.orange,
-            ),
+          CustomSnackbar.show(
+            context,
+            message: 'Sesi telah habis, silakan masuk kembali!',
           );
         }
       });

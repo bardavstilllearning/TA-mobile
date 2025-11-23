@@ -3,13 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../../widgets/custom_snackbar.dart';
 import '../../services/api_service.dart';
-import '../home_page.dart';
-import '../../utils/currency_helper.dart';
+import '../start_page.dart';
+import '../../utils/helpers/currency_helper.dart';
 import '../../utils/user_preferences.dart';
-import '../../utils/timezone_helper.dart';
-
-String currentCurrency = 'IDR';
-String currentTimezone = 'Asia/Jakarta';
+import '../../utils/helpers/timezone_helper.dart';
 
 class OrderPage extends StatefulWidget {
   final Map<String, dynamic> worker;
@@ -27,6 +24,8 @@ class _OrderPageState extends State<OrderPage> {
   DateTime? selectedDate;
   String? selectedSession;
   bool isSubmitting = false;
+  String currentCurrency = 'IDR'; // ✅ Add this
+  String currentTimezone = 'Asia/Jakarta';
 
   List<String> availableTimeslots = [
     "08:00-10:00",
@@ -39,13 +38,17 @@ class _OrderPageState extends State<OrderPage> {
   void initState() {
     super.initState();
     initializeDateFormatting('id_ID', null);
-    _loadCurrency();
-    _loadTimezone();
+    _loadPreferences(); // ✅ Load both
   }
 
-  Future<void> _loadTimezone() async {
+  // ✅ NEW: Load currency & timezone
+  Future<void> _loadPreferences() async {
+    final currency = await UserPreferences.getCurrency();
     final timezone = await UserPreferences.getTimezone();
-    setState(() => currentTimezone = timezone);
+    setState(() {
+      currentCurrency = currency;
+      currentTimezone = timezone;
+    });
   }
 
   List<String> get convertedTimeslots {
@@ -54,12 +57,8 @@ class _OrderPageState extends State<OrderPage> {
     }).toList();
   }
 
-  Future<void> _loadCurrency() async {
-    final currency = await UserPreferences.getCurrency();
-    setState(() => currentCurrency = currency);
-  }
-
-  String formatRupiah(dynamic harga) {
+  // ✅ UPDATED: Format dengan currency preference
+  String formatCurrency(dynamic harga) {
     return CurrencyHelper.convertAndFormat(harga, currentCurrency);
   }
 
@@ -67,7 +66,7 @@ class _OrderPageState extends State<OrderPage> {
     if (selectedDate == null) {
       CustomSnackbar.show(
         context,
-        message: "Pilih tanggal terlebih dahulu",
+        message: "Pilih tanggal terlebih dahulu!",
         backgroundColor: Colors.red,
       );
       return;
@@ -76,7 +75,7 @@ class _OrderPageState extends State<OrderPage> {
     if (selectedSession == null) {
       CustomSnackbar.show(
         context,
-        message: "Pilih sesi waktu terlebih dahulu",
+        message: "Pilih sesi waktu terlebih dahulu!",
         backgroundColor: Colors.red,
       );
       return;
@@ -116,7 +115,7 @@ class _OrderPageState extends State<OrderPage> {
       if (mounted) {
         CustomSnackbar.show(
           context,
-          message: 'Error: $e',
+          message: 'Error: $e!',
           backgroundColor: Colors.red,
         );
       }
@@ -130,7 +129,7 @@ class _OrderPageState extends State<OrderPage> {
     final worker = widget.worker;
     double pricePerHour =
         double.tryParse(worker['price_per_hour'].toString()) ?? 0;
-    double total = pricePerHour * 2; // Asumsi 2 jam
+    double total = pricePerHour * 2;
 
     return Scaffold(
       appBar: AppBar(
@@ -166,11 +165,15 @@ class _OrderPageState extends State<OrderPage> {
               style: const TextStyle(color: Colors.grey),
             ),
             const Divider(height: 32),
-            // Tampilkan jam sesuai timezone
+
+            // ✅ Show current timezone
             Text(
               'Jam sekarang: ${TimezoneHelper.getCurrentTimeInTimezone(currentTimezone)}',
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 12, fontFamily: 'Poppins'),
             ),
+            const SizedBox(height: 16),
+
+            // Tanggal
             Container(
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
@@ -187,7 +190,7 @@ class _OrderPageState extends State<OrderPage> {
                   child: Text(
                     selectedDate == null
                         ? "Belum dipilih"
-                        : DateFormat('EEEE, dd MMM yyyy', 'id_ID')
+                        : DateFormat('EEEE, dd MMMM yyyy', 'id_ID')
                             .format(selectedDate!),
                   ),
                 ),
@@ -198,6 +201,7 @@ class _OrderPageState extends State<OrderPage> {
                     initialDate: DateTime.now(),
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 14)),
+                    locale: const Locale('id', 'ID'), // ✅ Locale Indonesia
                   );
                   if (pickedDate != null) {
                     setState(() {
@@ -208,6 +212,8 @@ class _OrderPageState extends State<OrderPage> {
                 },
               ),
             ),
+
+            // Sesi waktu
             Container(
               margin: const EdgeInsets.only(top: 8),
               decoration: BoxDecoration(
@@ -245,6 +251,8 @@ class _OrderPageState extends State<OrderPage> {
               ),
             ),
             const Spacer(),
+
+            // Info harga
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -261,7 +269,7 @@ class _OrderPageState extends State<OrderPage> {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  formatRupiah(total),
+                  formatCurrency(total), // ✅ Use formatted currency
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],

@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:intl/intl.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/custom_snackbar.dart';
-import '../../../utils/timezone_helper.dart';
+import '../../../utils/helpers/timezone_helper.dart';
 import '../../../utils/user_preferences.dart';
-import '../foto_before_page.dart';
-import '../foto_after_page.dart';
+import '../before_page.dart';
+import '../after_page.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import '../../../services/notification_service.dart';
 
 class OrderDetailPage extends StatefulWidget {
   final int orderId;
@@ -70,7 +71,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Status berhasil diupdate!',
+            message: 'Status berhasil diperbarui!',
             backgroundColor: Colors.green,
           );
         }
@@ -80,13 +81,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       if (mounted) {
         CustomSnackbar.show(
           context,
-          message: 'Error: $e',
+          message: 'Error: $e!',
           backgroundColor: Colors.red,
         );
       }
     }
   }
 
+  // ✅ UPDATED: Handle Photo Before with notification
   Future<void> _handlePhotoBefore() async {
     final photo = await Navigator.push(
       context,
@@ -94,6 +96,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
 
     if (photo != null && photo is File) {
+      // Show loading notification
+      if (mounted) {
+        CustomSnackbar.show(
+          context,
+          message: 'Mengunggah foto sebelum pekerjaan dimulai!',
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        );
+        NotificationService.showPhotoUploadSuccess('before');
+      }
+      await _loadOrderDetail();
+
       try {
         final response = await ApiService.uploadPhotoBefore(
           orderId: widget.orderId,
@@ -102,19 +116,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
         if (response['success'] == true) {
           if (mounted) {
+            // ✅ Show success notification
             CustomSnackbar.show(
               context,
-              message: 'Foto before berhasil diupload!',
+              message: 'Foto sebelum pekerjaan dimulai berhasil diunggah!',
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
             );
           }
           await _loadOrderDetail();
+        } else {
+          throw response['message'] ?? 'Gagal mengunggah foto!';
         }
       } catch (e) {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Error: $e',
+            message: 'Error: $e!',
             backgroundColor: Colors.red,
           );
         }
@@ -122,6 +140,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
+  // ✅ UPDATED: Handle Photo After with notification
   Future<void> _handlePhotoAfter() async {
     final photo = await Navigator.push(
       context,
@@ -129,6 +148,17 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
 
     if (photo != null && photo is File) {
+      // Show loading notification
+      if (mounted) {
+        CustomSnackbar.show(
+          context,
+          message: 'Mengunggah foto setelah pekerjaan selesai!',
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        );
+        NotificationService.showPhotoUploadSuccess('after');
+      }
+      await _loadOrderDetail();
       try {
         final response = await ApiService.uploadPhotoAfter(
           orderId: widget.orderId,
@@ -139,17 +169,20 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           if (mounted) {
             CustomSnackbar.show(
               context,
-              message: 'Foto after berhasil diupload!',
+              message: 'Foto setelah pekerjaan dilakukan berhasil diunggah!',
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
             );
           }
           await _loadOrderDetail();
+        } else {
+          throw response['message'] ?? 'Gagal mengunggah foto!';
         }
       } catch (e) {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Error: $e',
+            message: 'Error: $e!',
             backgroundColor: Colors.red,
           );
         }
@@ -157,6 +190,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
+  // ✅ UPDATED: Rating popup with notification
   void _showRatingPopup(BuildContext context) {
     double rating = 0;
     final TextEditingController ulasanController = TextEditingController();
@@ -233,6 +267,15 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     if (rating > 0) {
                       Navigator.pop(context);
 
+                      if (mounted) {
+                        CustomSnackbar.show(
+                          context,
+                          message: 'Mengirim Penilaian!',
+                          backgroundColor: Colors.orange,
+                          duration: const Duration(seconds: 2),
+                        );
+                      }
+
                       try {
                         final response = await ApiService.submitReview(
                           orderId: widget.orderId,
@@ -244,20 +287,25 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
                         if (response['success'] == true) {
                           if (mounted) {
+                            // ✅ Show success notification with rating
                             CustomSnackbar.show(
                               context,
                               message:
-                                  "Terima kasih atas ulasannya! (${rating.toStringAsFixed(1)}⭐)",
+                                  "✓ Terima kasih atas ulasannya! (${rating.toStringAsFixed(1)}⭐)",
                               backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 3),
                             );
+                            NotificationService.showRatingSuccess(rating);
                           }
                           await _loadOrderDetail();
+                        } else {
+                          throw response['message'] ?? 'Gagal submit review';
                         }
                       } catch (e) {
                         if (mounted) {
                           CustomSnackbar.show(
                             context,
-                            message: 'Error: $e',
+                            message: 'Error $e!',
                             backgroundColor: Colors.red,
                           );
                         }
@@ -313,10 +361,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     final orderDate = order!['order_date'];
     final timeSlot = order!['time_slot'];
 
-    // Convert timezone untuk display
     final convertedTime = TimezoneHelper.convertTime(timeSlot, currentTimezone);
 
-    // Format tanggal
     String formattedDate = orderDate;
     try {
       final date = DateTime.parse(orderDate);
@@ -325,7 +371,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       debugPrint('Error parsing date: $e');
     }
 
-    // Tentukan button action
     String buttonLabel = '';
     VoidCallback? onButtonPressed;
 
@@ -344,7 +389,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       backgroundColor: const Color(0xFFEFECE3),
       body: CustomScrollView(
         slivers: [
-          // AppBar dengan foto worker
           SliverAppBar(
             pinned: true,
             backgroundColor: Colors.white,
@@ -407,15 +451,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     ),
             ),
           ),
-
-          // Konten
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Info Worker
                   Row(
                     children: [
                       Expanded(
@@ -462,10 +503,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Info Tanggal & Waktu
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -506,12 +544,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 16),
                   const Divider(thickness: 0.8),
                   const SizedBox(height: 16),
-
-                  // Progress Timeline
                   const Text(
                     "Progress Pekerjaan",
                     style: TextStyle(
@@ -522,10 +557,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ),
                   const SizedBox(height: 12),
                   _buildProgressTimeline(status),
-
                   const SizedBox(height: 24),
-
-                  // Foto Before & After
                   if (order!['photo_before'] != null ||
                       order!['photo_after'] != null) ...[
                     const Text(
@@ -610,8 +642,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     ),
                     const SizedBox(height: 16),
                   ],
-
-                  // Rating & Review (jika sudah ada)
                   if (order!['user_rating'] != null) ...[
                     const Divider(thickness: 0.8),
                     const SizedBox(height: 16),
@@ -666,7 +696,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ),
                     ),
                   ],
-
                   const SizedBox(height: 80),
                 ],
               ),
@@ -674,8 +703,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           ),
         ],
       ),
-
-      // Bottom Button
       bottomNavigationBar: buttonLabel.isNotEmpty
           ? SafeArea(
               child: Container(
@@ -720,12 +747,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   String _getStatusLabel(String status) {
     switch (status) {
-      case 'pending':
-        return 'Menunggu Konfirmasi';
       case 'accepted':
         return 'Diterima';
-      case 'on_the_way':
-        return 'Sedang Menuju';
       case 'in_progress':
         return 'Sedang Bekerja';
       case 'completed':
@@ -758,18 +781,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Widget _buildProgressTimeline(String currentStatus) {
     final steps = [
       {'label': 'Pemesanan Diterima', 'status': 'accepted'},
-      {'label': 'Sedang Menuju Lokasi', 'status': 'on_the_way'},
       {'label': 'Mulai Bekerja', 'status': 'in_progress'},
       {'label': 'Pekerjaan Selesai', 'status': 'completed'},
     ];
 
-    final statusOrder = [
-      'pending',
-      'accepted',
-      'on_the_way',
-      'in_progress',
-      'completed'
-    ];
+    final statusOrder = ['pending', 'accepted', 'in_progress', 'completed'];
     final currentIndex = statusOrder.indexOf(currentStatus);
 
     return Column(
