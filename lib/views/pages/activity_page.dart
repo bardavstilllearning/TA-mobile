@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../utils/helpers/currency_helper.dart';
 import '../../utils/helpers/image_helper.dart';
+import '../../utils/helpers/timezone_helper.dart';
+import '../../utils/user_preferences.dart';
 import 'detail/order_detail_page.dart';
 
 class ActivityPage extends StatefulWidget {
@@ -14,11 +17,35 @@ class ActivityPage extends StatefulWidget {
 class _ActivityPageState extends State<ActivityPage> {
   List<Map<String, dynamic>> orders = [];
   bool isLoading = true;
+  String currentCurrency = 'IDR';
+  String currentTimezone = 'Asia/Jakarta';
 
   @override
   void initState() {
     super.initState();
-    _loadOrders();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    await Future.wait([
+      _loadCurrency(),
+      _loadTimezone(),
+      _loadOrders(),
+    ]);
+  }
+
+  Future<void> _loadCurrency() async {
+    final currency = await UserPreferences.getCurrency();
+    if (mounted) {
+      setState(() => currentCurrency = currency);
+    }
+  }
+
+  Future<void> _loadTimezone() async {
+    final timezone = await UserPreferences.getTimezone();
+    if (mounted) {
+      setState(() => currentTimezone = timezone);
+    }
   }
 
   Future<void> _loadOrders() async {
@@ -29,7 +56,7 @@ class _ActivityPageState extends State<ActivityPage> {
 
       if (response['success'] == true && mounted) {
         setState(() {
-          orders = List<Map<String, dynamic>>.from(response['orders']);
+          orders = List<Map<String, dynamic>>.from(response['orders'] ?? []);
         });
       }
     } catch (e) {
@@ -60,8 +87,40 @@ class _ActivityPageState extends State<ActivityPage> {
     }
   }
 
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'accepted':
+      case 'on_the_way':
+        return Colors.blue;
+      case 'in_progress':
+        return Colors.purple;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   String _formatCurrency(dynamic amount) {
-    return CurrencyHelper.convertAndFormat(amount, 'IDR');
+    return CurrencyHelper.convertAndFormat(amount, currentCurrency);
+  }
+
+  String _formatDateTime(String orderDate, String timeSlot) {
+    try {
+      final date = DateTime.parse(orderDate);
+      final formattedDate =
+          DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(date);
+      final convertedTime =
+          TimezoneHelper.convertTime(timeSlot, currentTimezone);
+      return '$formattedDate $convertedTime';
+    } catch (e) {
+      debugPrint('Error formatting date: $e');
+      return '$orderDate $timeSlot';
+    }
   }
 
   @override
@@ -82,28 +141,43 @@ class _ActivityPageState extends State<ActivityPage> {
         elevation: 1,
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF4A70A9),
+              ),
+            )
           : orders.isEmpty
-              ? const Center(
-                  child: Text(
-                    "Belum ada riwayat pesanan",
-                    style: TextStyle(
-                      fontFamily: "Poppins",
-                      color: Colors.grey,
-                      fontSize: 16,
-                    ),
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.receipt_long_outlined,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Belum ada riwayat pesanan",
+                        style: TextStyle(
+                          fontFamily: "Poppins",
+                          color: Colors.grey[600],
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : RefreshIndicator(
                   onRefresh: _loadOrders,
+                  color: const Color(0xFF4A70A9),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: orders.length,
                       itemBuilder: (context, index) {
-                        final order = orders[index];
-                        return _buildOrderCard(order);
+                        return _buildOrderCard(orders[index]);
                       },
                     ),
                   ),
@@ -113,8 +187,13 @@ class _ActivityPageState extends State<ActivityPage> {
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
     final worker = order['worker'];
-    final status = _getStatusLabel(order['status']);
-    final isCompleted = order['status'] == 'completed';
+    final status = order['status'];
+    final statusLabel = _getStatusLabel(status);
+    final statusColor = _getStatusColor(status);
+    final formattedDateTime = _formatDateTime(
+      order['order_date'],
+      order['time_slot'],
+    );
 
     return GestureDetector(
       onTap: () {
@@ -141,7 +220,7 @@ class _ActivityPageState extends State<ActivityPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ FIXED: Gunakan ImageHelper
+            // Worker Photo
             Container(
               margin: const EdgeInsets.all(10),
               width: 90,
@@ -161,7 +240,7 @@ class _ActivityPageState extends State<ActivityPage> {
               ),
             ),
 
-            // Info pesanan
+            // Order Info
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(top: 10, bottom: 10, right: 12),
@@ -188,20 +267,16 @@ class _ActivityPageState extends State<ActivityPage> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: isCompleted
-                                ? Colors.green.withOpacity(0.15)
-                                : Colors.orange.withOpacity(0.15),
+                            color: statusColor.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            status,
+                            statusLabel,
                             style: TextStyle(
                               fontFamily: "Poppins",
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: isCompleted
-                                  ? Colors.green[700]
-                                  : Colors.orange[700],
+                              color: statusColor,
                             ),
                           ),
                         ),
@@ -218,12 +293,14 @@ class _ActivityPageState extends State<ActivityPage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      "${order["order_date"]}, ${order["time_slot"]}",
+                      formattedDateTime,
                       style: const TextStyle(
                         fontFamily: "Poppins",
                         fontSize: 12,
                         color: Colors.black87,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     Text(

@@ -20,9 +20,20 @@ class UserPreferences {
   static Future<void> setUserId(int userId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyUserId, userId);
+
+    // ✅ FIX: Set default preferences untuk user baru
+    if (!prefs.containsKey(_keyCurrency)) {
+      await prefs.setString(_keyCurrency, DEFAULT_CURRENCY);
+      print('✅ Set default currency for new user: $DEFAULT_CURRENCY');
+    }
+
+    if (!prefs.containsKey(_keyTimezone)) {
+      await prefs.setString(_keyTimezone, DEFAULT_TIMEZONE);
+      print('✅ Set default timezone for new user: $DEFAULT_TIMEZONE');
+    }
   }
 
-  // ✅ Currency Methods - Default to IDR
+  // ✅ Currency Methods - Always return IDR if not set
   static Future<void> setCurrency(String currency) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyCurrency, currency);
@@ -31,12 +42,20 @@ class UserPreferences {
 
   static Future<String> getCurrency() async {
     final prefs = await SharedPreferences.getInstance();
-    final currency = prefs.getString(_keyCurrency) ?? DEFAULT_CURRENCY;
+    final currency = prefs.getString(_keyCurrency);
+
+    // ✅ FIX: Jika null atau kosong, set default dan return
+    if (currency == null || currency.isEmpty) {
+      await prefs.setString(_keyCurrency, DEFAULT_CURRENCY);
+      print('💰 Using default currency: $DEFAULT_CURRENCY');
+      return DEFAULT_CURRENCY;
+    }
+
     print('💰 Get currency: $currency');
     return currency;
   }
 
-  // ✅ Timezone Methods - Default to WIB
+  // ✅ Timezone Methods - Always return WIB if not set
   static Future<void> setTimezone(String timezone) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyTimezone, timezone);
@@ -45,7 +64,15 @@ class UserPreferences {
 
   static Future<String> getTimezone() async {
     final prefs = await SharedPreferences.getInstance();
-    final timezone = prefs.getString(_keyTimezone) ?? DEFAULT_TIMEZONE;
+    final timezone = prefs.getString(_keyTimezone);
+
+    // ✅ FIX: Jika null atau kosong, set default dan return
+    if (timezone == null || timezone.isEmpty) {
+      await prefs.setString(_keyTimezone, DEFAULT_TIMEZONE);
+      print('⏰ Using default timezone: $DEFAULT_TIMEZONE');
+      return DEFAULT_TIMEZONE;
+    }
+
     print('⏰ Get timezone: $timezone');
     return timezone;
   }
@@ -82,5 +109,13 @@ class UserPreferences {
     await prefs.remove(_keyCurrency);
     await prefs.remove(_keyTimezone);
     print('🗑️ Cleared preferences');
+  }
+
+  // ✅ NEW: Force reset to defaults (useful for new users)
+  static Future<void> resetToDefaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCurrency, DEFAULT_CURRENCY);
+    await prefs.setString(_keyTimezone, DEFAULT_TIMEZONE);
+    print('🔄 Reset to defaults: $DEFAULT_CURRENCY, $DEFAULT_TIMEZONE');
   }
 }

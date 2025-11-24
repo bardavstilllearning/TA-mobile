@@ -101,7 +101,8 @@ class _BerandaPageState extends State<BerandaPage> {
 
       if (response['success'] == true && mounted) {
         setState(() {
-          workers = List<Map<String, dynamic>>.from(response['workers']);
+          workers = List<Map<String, dynamic>>.from(
+              response['workers'] ?? []); // ✅ Handle null
         });
       } else {
         _showError(response['message'] ?? 'Gagal memuat data');
@@ -143,16 +144,18 @@ class _BerandaPageState extends State<BerandaPage> {
 
     final worker = workers[index];
     final workerId = worker['id'];
+    final workerName = worker['name'] ?? 'Pekerja'; // ✅ Get worker name
 
     try {
       final isFav = await FavoriteDatabase.isFavorite(workerId, currentUserId!);
 
       if (isFav) {
         await FavoriteDatabase.removeFavorite(workerId, currentUserId!);
-        _showSuccess("Dihapus dari favorit", isError: true);
+        _showSuccess("$workerName dihapus dari favorit!",
+            isError: true); // ✅ Dengan nama
       } else {
         await FavoriteDatabase.addFavorite(worker, currentUserId!);
-        _showSuccess('Ditambahkan ke favorit!');
+        _showSuccess('$workerName ditambahkan ke favorit!'); // ✅ Dengan nama
       }
 
       setState(() {}); // Trigger rebuild
@@ -345,6 +348,7 @@ class _BerandaPageState extends State<BerandaPage> {
     );
   }
 
+  // ✅ FIX: GridView dengan proper empty check
   Widget _buildWorkerGrid() {
     if (isLoading) {
       return const Center(
@@ -354,6 +358,7 @@ class _BerandaPageState extends State<BerandaPage> {
       );
     }
 
+    // ✅ CRITICAL: Check isEmpty BEFORE building GridView
     if (workers.isEmpty) {
       return Center(
         child: Column(
@@ -388,7 +393,7 @@ class _BerandaPageState extends State<BerandaPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: GridView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: workers.length,
+          itemCount: workers.length, // ✅ Safe to use now
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             mainAxisExtent: 260,
@@ -412,13 +417,11 @@ class _BerandaPageState extends State<BerandaPage> {
       return const SizedBox.shrink();
     }
 
-    // ✅ FIX: Build favorite status OUTSIDE FutureBuilder
     return StatefulBuilder(
       builder: (context, setCardState) {
         return FutureBuilder<bool>(
           future: FavoriteDatabase.isFavorite(worker['id'], currentUserId!),
           builder: (context, snapshot) {
-            // ✅ Handle loading state properly
             if (snapshot.connectionState == ConnectionState.waiting) {
               return _buildWorkerCardLoading();
             }
@@ -433,7 +436,6 @@ class _BerandaPageState extends State<BerandaPage> {
                     builder: (_) => WorkerDetailPage(worker: worker),
                   ),
                 ).then((_) {
-                  // ✅ Use post frame callback to avoid setState during build
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) {
                       _loadCurrency();
@@ -520,7 +522,7 @@ class _BerandaPageState extends State<BerandaPage> {
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
-                                    "$rating | ${worker["total_orders"] ?? 0}x",
+                                    "${worker["rating"] ?? '0.0'}| ${worker["total_orders"] ?? 0}x",
                                     style: const TextStyle(
                                       fontFamily: "Poppins",
                                       fontSize: 11,
@@ -561,8 +563,6 @@ class _BerandaPageState extends State<BerandaPage> {
                         ),
                       ],
                     ),
-
-                    // ✅ FIX: Simplified favorite button
                     Positioned(
                       bottom: 8,
                       right: 8,
@@ -570,7 +570,6 @@ class _BerandaPageState extends State<BerandaPage> {
                         onTap: () async {
                           if (currentUserId == null) return;
 
-                          // ✅ Update immediately for responsiveness
                           setCardState(() {});
 
                           try {
@@ -588,7 +587,8 @@ class _BerandaPageState extends State<BerandaPage> {
                               if (mounted) {
                                 CustomSnackbar.show(
                                   context,
-                                  message: "Dihapus dari favorit!",
+                                  message:
+                                      "${worker['name']} dihapus dari favorit!",
                                   backgroundColor: Colors.red,
                                 );
                               }
@@ -600,13 +600,13 @@ class _BerandaPageState extends State<BerandaPage> {
                               if (mounted) {
                                 CustomSnackbar.show(
                                   context,
-                                  message: 'Ditambahkan ke favorit!',
+                                  message:
+                                      '${worker['name']} ditambahkan ke favorit!',
                                   backgroundColor: Colors.green,
                                 );
                               }
                             }
 
-                            // ✅ Refresh after action
                             setCardState(() {});
                           } catch (e) {
                             debugPrint('❌ Error toggling favorite: $e');
@@ -645,7 +645,6 @@ class _BerandaPageState extends State<BerandaPage> {
     );
   }
 
-// ✅ ADD: Loading placeholder
   Widget _buildWorkerCardLoading() {
     return Container(
       decoration: BoxDecoration(

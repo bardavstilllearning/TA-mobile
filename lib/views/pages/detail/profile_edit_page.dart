@@ -5,7 +5,8 @@ import 'package:geocoding/geocoding.dart';
 import 'dart:io';
 import '../../../services/api_service.dart';
 import '../../../widgets/custom_snackbar.dart';
-import '../../map_picker_page.dart'; // ✅ Import MapPickerPage
+import '../../../utils/helpers/encryption_helper.dart';
+import '../../map_picker_page.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -28,7 +29,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool isLoadingLocation = false;
   String? currentPhotoUrl;
 
-  // ✅ NEW: Location data
   double? latitude;
   double? longitude;
 
@@ -73,7 +73,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // ✅ NEW: Get current location
   Future<void> _getCurrentLocation() async {
     setState(() => isLoadingLocation = true);
 
@@ -102,7 +101,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           longitude = position.longitude;
         });
 
-        // Get address from coordinates
         await _getAddressFromCoordinates(position.latitude, position.longitude);
 
         CustomSnackbar.show(
@@ -126,7 +124,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // ✅ NEW: Reverse geocoding
   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
@@ -143,7 +140,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // ✅ NEW: Open map picker
   Future<void> _openMapPicker() async {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -170,6 +166,191 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  // ✅ NEW: Change Password Dialog
+  void _showChangePasswordDialog() {
+    final currentPasswordC = TextEditingController();
+    final newPasswordC = TextEditingController();
+    final confirmPasswordC = TextEditingController();
+    bool showCurrentPass = false;
+    bool showNewPass = false;
+    bool showConfirmPass = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Ubah Password',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentPasswordC,
+                  obscureText: !showCurrentPass,
+                  decoration: InputDecoration(
+                    labelText: 'Password Saat Ini',
+                    labelStyle: const TextStyle(fontFamily: 'Poppins'),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        showCurrentPass
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          showCurrentPass = !showCurrentPass;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newPasswordC,
+                  obscureText: !showNewPass,
+                  decoration: InputDecoration(
+                    labelText: 'Password Baru',
+                    labelStyle: const TextStyle(fontFamily: 'Poppins'),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        showNewPass ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          showNewPass = !showNewPass;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmPasswordC,
+                  obscureText: !showConfirmPass,
+                  decoration: InputDecoration(
+                    labelText: 'Konfirmasi Password Baru',
+                    labelStyle: const TextStyle(fontFamily: 'Poppins'),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        showConfirmPass
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          showConfirmPass = !showConfirmPass;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Batal',
+                style: TextStyle(fontFamily: 'Poppins'),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4A70A9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () async {
+                if (currentPasswordC.text.isEmpty ||
+                    newPasswordC.text.isEmpty ||
+                    confirmPasswordC.text.isEmpty) {
+                  CustomSnackbar.show(
+                    context,
+                    message: 'Semua field wajib diisi!',
+                    backgroundColor: Colors.red,
+                  );
+                  return;
+                }
+
+                if (newPasswordC.text != confirmPasswordC.text) {
+                  CustomSnackbar.show(
+                    context,
+                    message: 'Password baru tidak cocok!',
+                    backgroundColor: Colors.red,
+                  );
+                  return;
+                }
+
+                if (newPasswordC.text.length < 6) {
+                  CustomSnackbar.show(
+                    context,
+                    message: 'Password minimal 6 karakter!',
+                    backgroundColor: Colors.red,
+                  );
+                  return;
+                }
+
+                try {
+                  final response = await ApiService.updatePassword(
+                    currentPassword:
+                        EncryptionHelper.encryptPassword(currentPasswordC.text),
+                    newPassword:
+                        EncryptionHelper.encryptPassword(newPasswordC.text),
+                  );
+
+                  if (response['success'] == true) {
+                    Navigator.pop(context);
+                    CustomSnackbar.show(
+                      context,
+                      message: 'Password berhasil diubah! ✓',
+                      backgroundColor: Colors.green,
+                    );
+                  } else {
+                    throw response['message'] ?? 'Gagal mengubah password';
+                  }
+                } catch (e) {
+                  CustomSnackbar.show(
+                    context,
+                    message: 'Error: $e',
+                    backgroundColor: Colors.red,
+                  );
+                }
+              },
+              child: const Text(
+                'Ubah',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveProfile() async {
     if (nameC.text.isEmpty || phoneC.text.isEmpty || addressC.text.isEmpty) {
       CustomSnackbar.show(
@@ -194,7 +375,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Profile berhasil diupdate!',
+            message: 'Profile berhasil diupdate! ✓',
             backgroundColor: Colors.green,
           );
 
@@ -303,7 +484,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
           const SizedBox(height: 16),
 
-          // ✅ Location Buttons
+          // Location Buttons
           Row(
             children: [
               Expanded(
@@ -403,6 +584,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
           ],
+
+          const SizedBox(height: 25),
+
+          // ✅ NEW: Change Password Button
+          OutlinedButton.icon(
+            onPressed: _showChangePasswordDialog,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: Color(0xFF4A70A9)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.lock_outline, color: Color(0xFF4A70A9)),
+            label: const Text(
+              'Ubah Password',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                color: Color(0xFF4A70A9),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
 
           const SizedBox(height: 25),
           _saveBtn(context),

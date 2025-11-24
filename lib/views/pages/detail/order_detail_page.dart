@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/custom_snackbar.dart';
 import '../../../utils/helpers/timezone_helper.dart';
+import '../../../utils/helpers/currency_helper.dart';
 import '../../../utils/user_preferences.dart';
 import '../before_page.dart';
 import '../after_page.dart';
@@ -22,17 +23,33 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Map<String, dynamic>? order;
   bool isLoading = true;
   String currentTimezone = 'Asia/Jakarta';
+  String currentCurrency = 'IDR';
+
+  // ✅ FIX: Track previous status untuk deteksi perubahan
+  String? previousStatus;
 
   @override
   void initState() {
     super.initState();
-    _loadTimezone();
-    _loadOrderDetail();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    await Future.wait([
+      _loadTimezone(),
+      _loadCurrency(),
+      _loadOrderDetail(),
+    ]);
   }
 
   Future<void> _loadTimezone() async {
     final tz = await UserPreferences.getTimezone();
     setState(() => currentTimezone = tz);
+  }
+
+  Future<void> _loadCurrency() async {
+    final currency = await UserPreferences.getCurrency();
+    setState(() => currentCurrency = currency);
   }
 
   Future<void> _loadOrderDetail() async {
@@ -47,12 +64,28 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           orElse: () => {},
         );
 
-        if (foundOrder.isNotEmpty) {
-          setState(() => order = foundOrder);
+        if (foundOrder.isNotEmpty && mounted) {
+          // ✅ FIX: Deteksi perubahan status
+          if (previousStatus != null &&
+              previousStatus == 'pending' &&
+              foundOrder['status'] == 'accepted') {
+            // Tampilkan notifikasi konfirmasi
+            final workerName = foundOrder['worker']?['name'] ?? 'Pekerja';
+            NotificationService.showNotification(
+              title: 'Pesanan Dikonfirmasi! ✓',
+              body: 'Pesanan Anda telah dikonfirmasi oleh $workerName',
+              type: NotificationType.success,
+            );
+          }
+
+          setState(() {
+            previousStatus = foundOrder['status']; // ✅ Simpan status saat ini
+            order = foundOrder;
+          });
         }
       }
     } catch (e) {
-      debugPrint('Error loading order: $e');
+      debugPrint('❌ Error loading order: $e');
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -88,7 +121,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  // ✅ UPDATED: Handle Photo Before with notification
   Future<void> _handlePhotoBefore() async {
     final photo = await Navigator.push(
       context,
@@ -96,7 +128,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
 
     if (photo != null && photo is File) {
-      // Show loading notification
       if (mounted) {
         CustomSnackbar.show(
           context,
@@ -104,9 +135,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 2),
         );
-        NotificationService.showPhotoUploadSuccess('before');
       }
-      await _loadOrderDetail();
 
       try {
         final response = await ApiService.uploadPhotoBefore(
@@ -116,13 +145,13 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
         if (response['success'] == true) {
           if (mounted) {
-            // ✅ Show success notification
             CustomSnackbar.show(
               context,
               message: 'Foto sebelum pekerjaan dimulai berhasil diunggah!',
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             );
+            NotificationService.showPhotoUploadSuccess('before');
           }
           await _loadOrderDetail();
         } else {
@@ -140,7 +169,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  // ✅ UPDATED: Handle Photo After with notification
   Future<void> _handlePhotoAfter() async {
     final photo = await Navigator.push(
       context,
@@ -148,7 +176,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
 
     if (photo != null && photo is File) {
-      // Show loading notification
       if (mounted) {
         CustomSnackbar.show(
           context,
@@ -156,9 +183,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 2),
         );
-        NotificationService.showPhotoUploadSuccess('after');
       }
-      await _loadOrderDetail();
+
       try {
         final response = await ApiService.uploadPhotoAfter(
           orderId: widget.orderId,
@@ -173,6 +199,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
             );
+            NotificationService.showPhotoUploadSuccess('after');
           }
           await _loadOrderDetail();
         } else {
@@ -190,7 +217,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
-  // ✅ UPDATED: Rating popup with notification
   void _showRatingPopup(BuildContext context) {
     double rating = 0;
     final TextEditingController ulasanController = TextEditingController();
@@ -287,7 +313,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
                         if (response['success'] == true) {
                           if (mounted) {
-                            // ✅ Show success notification with rating
                             CustomSnackbar.show(
                               context,
                               message:
@@ -371,10 +396,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       debugPrint('Error parsing date: $e');
     }
 
+    // ✅ FIX: Button logic dengan disable untuk pending
     String buttonLabel = '';
     VoidCallback? onButtonPressed;
 
-    if (status == 'pending' || status == 'accepted') {
+    if (status == 'pending') {
+      buttonLabel = "Menunggu Konfirmasi...";
+      onButtonPressed = null; // ✅ DISABLED
+    } else if (status == 'accepted') {
       buttonLabel = "Mulai Bekerja (Upload Foto Before)";
       onButtonPressed = _handlePhotoBefore;
     } else if (status == 'in_progress' && order!['photo_after'] == null) {
@@ -544,6 +573,54 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // ✅ Tampilkan harga dengan currency
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.attach_money,
+                          color: Color(0xFF4A70A9),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Total Biaya',
+                                style: TextStyle(
+                                  fontFamily: "Poppins",
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              Text(
+                                CurrencyHelper.convertAndFormat(
+                                  order!['total_price'],
+                                  currentCurrency,
+                                ),
+                                style: const TextStyle(
+                                  fontFamily: "Poppins",
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF4A70A9),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   const SizedBox(height: 16),
                   const Divider(thickness: 0.8),
                   const SizedBox(height: 16),
@@ -722,7 +799,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4A70A9),
+                      backgroundColor: onButtonPressed == null
+                          ? Colors.grey
+                          : const Color(0xFF4A70A9),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -747,6 +826,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
   String _getStatusLabel(String status) {
     switch (status) {
+      case 'pending':
+        return 'Menunggu Konfirmasi';
       case 'accepted':
         return 'Diterima';
       case 'in_progress':
@@ -778,15 +859,30 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
+  // ✅ FIX: Timeline dengan step rating
   Widget _buildProgressTimeline(String currentStatus) {
     final steps = [
       {'label': 'Pemesanan Diterima', 'status': 'accepted'},
       {'label': 'Mulai Bekerja', 'status': 'in_progress'},
       {'label': 'Pekerjaan Selesai', 'status': 'completed'},
+      {'label': 'Beri Rating & Ulasan', 'status': 'rated'},
     ];
 
-    final statusOrder = ['pending', 'accepted', 'in_progress', 'completed'];
-    final currentIndex = statusOrder.indexOf(currentStatus);
+    final statusOrder = [
+      'pending',
+      'accepted',
+      'in_progress',
+      'completed',
+      'rated'
+    ];
+
+    // Tentukan index saat ini
+    int currentIndex;
+    if (order!['user_rating'] != null) {
+      currentIndex = statusOrder.indexOf('rated');
+    } else {
+      currentIndex = statusOrder.indexOf(currentStatus);
+    }
 
     return Column(
       children: List.generate(steps.length, (i) {

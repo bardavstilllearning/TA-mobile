@@ -84,6 +84,27 @@ class _OrderPageState extends State<OrderPage> {
     setState(() => isSubmitting = true);
 
     try {
+      // ✅ CHECK AVAILABILITY FIRST
+      final checkResponse = await ApiService.checkAvailability(
+        workerId: widget.worker['id'],
+        orderDate: DateFormat('yyyy-MM-dd').format(selectedDate!),
+        timeSlot: selectedSession!,
+      );
+
+      if (checkResponse['available'] == false) {
+        if (mounted) {
+          CustomSnackbar.show(
+            context,
+            message: 'Waktu ini sudah di-booking! Pilih waktu lain.',
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          );
+        }
+        setState(() => isSubmitting = false);
+        return; // ✅ STOP DI SINI
+      }
+
+      // ✅ LANJUT CREATE ORDER
       final response = await ApiService.createOrder(
         workerId: widget.worker['id'],
         orderDate: DateFormat('yyyy-MM-dd').format(selectedDate!),
@@ -94,7 +115,7 @@ class _OrderPageState extends State<OrderPage> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: "Pesanan berhasil dibuat!",
+            message: "Pesanan berhasil dibuat! ✓",
             backgroundColor: Colors.green,
           );
 
@@ -120,7 +141,9 @@ class _OrderPageState extends State<OrderPage> {
         );
       }
     } finally {
-      setState(() => isSubmitting = false);
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
     }
   }
 

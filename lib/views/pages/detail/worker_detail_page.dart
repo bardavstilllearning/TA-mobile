@@ -131,7 +131,8 @@ class _WorkerDetailPageState extends State<WorkerDetailPage> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Dihapus dari favorit!',
+            message:
+                '${widget.worker['name']} dihapus dari favorit!', // ✅ NAMA WORKER
             backgroundColor: Colors.red,
           );
         }
@@ -140,7 +141,8 @@ class _WorkerDetailPageState extends State<WorkerDetailPage> {
         if (mounted) {
           CustomSnackbar.show(
             context,
-            message: 'Ditambahkan ke favorit!',
+            message:
+                '${widget.worker['name']} ditambahkan ke favorit!', // ✅ NAMA WORKER
             backgroundColor: Colors.green,
           );
         }
@@ -423,7 +425,7 @@ class _WorkerDetailPageState extends State<WorkerDetailPage> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  "${worker["rating"]?.toString() ?? '0'} / 5.0",
+                                  "${worker["rating"] ?? '0.0'} / 5.0",
                                   style: const TextStyle(
                                     fontFamily: "Poppins",
                                     fontSize: 13,
@@ -437,7 +439,7 @@ class _WorkerDetailPageState extends State<WorkerDetailPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "(${worker["total_orders"]?.toString() ?? '0'} pesanan selesai)",
+                        "(${worker["total_orders"] ?? 0} pesanan selesai)",
                         style: const TextStyle(
                           fontFamily: "Poppins",
                           fontSize: 13,
@@ -547,7 +549,8 @@ class _WorkerDetailPageState extends State<WorkerDetailPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 14, horizontal: 16),
                         ),
                       ),
                     ),
@@ -577,7 +580,7 @@ class _WorkerDetailPageState extends State<WorkerDetailPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
                     ),

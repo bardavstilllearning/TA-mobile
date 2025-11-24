@@ -29,20 +29,16 @@ class _MapPickerPageState extends State<MapPickerPage> {
     super.initState();
     _mapController = MapController();
 
-    // ✅ Use provided location OR get current location
     if (widget.initialLat != null && widget.initialLng != null) {
       _selectedLocation = LatLng(widget.initialLat!, widget.initialLng!);
       _getAddressFromCoordinates(
           _selectedLocation.latitude, _selectedLocation.longitude);
     } else {
-      // ✅ Default to Indonesia center first
-      _selectedLocation = LatLng(-7.797068, 110.370529);
-      // ✅ Then try to get real current location
+      _selectedLocation = const LatLng(-7.797068, 110.370529);
       _getCurrentLocationForMap();
     }
   }
 
-  // ✅ NEW: Get current location for map initialization
   Future<void> _getCurrentLocationForMap() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -64,7 +60,6 @@ class _MapPickerPageState extends State<MapPickerPage> {
           _selectedLocation = LatLng(position.latitude, position.longitude);
         });
 
-        // ✅ Move map to current location
         _mapController.move(_selectedLocation, 15.0);
 
         await _getAddressFromCoordinates(
@@ -73,7 +68,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
         );
       }
     } catch (e) {
-      debugPrint('❌ Error getting current location: $e');
+      debugPrint('Error: $e!');
     }
   }
 
@@ -94,7 +89,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _selectedAddress = 'Gagal memuat alamat';
+          _selectedAddress = 'Gagal memuat alamat!';
           _isLoadingAddress = false;
         });
       }
@@ -139,7 +134,6 @@ class _MapPickerPageState extends State<MapPickerPage> {
       ),
       body: Stack(
         children: [
-          // Map
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -160,7 +154,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
                     height: 40,
                     child: const Icon(
                       Icons.location_pin,
-                      color: Colors.red,
+                      color: Color(0xFF4A70A9),
                       size: 40,
                     ),
                   ),
@@ -168,8 +162,6 @@ class _MapPickerPageState extends State<MapPickerPage> {
               ),
             ],
           ),
-
-          // Address Card
           Positioned(
             top: 16,
             left: 16,
@@ -227,8 +219,6 @@ class _MapPickerPageState extends State<MapPickerPage> {
               ),
             ),
           ),
-
-          // Confirm Button
           Positioned(
             bottom: 24,
             left: 16,

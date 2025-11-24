@@ -28,6 +28,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   File? _selectedImage;
 
   @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  @override
   void dispose() {
     phoneController.dispose();
     addressController.dispose();
@@ -66,6 +72,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           message: 'Layanan lokasi tidak aktif! Mohon aktifkan GPS!',
           backgroundColor: Colors.red,
         );
+        setState(() => isLoadingLocation = false);
+        return;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
@@ -78,6 +86,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             message: 'Izin lokasi ditolak!',
             backgroundColor: Colors.red,
           );
+          setState(() => isLoadingLocation = false);
+          return;
         }
       }
 
@@ -88,6 +98,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
               'Izin lokasi ditolak secara permanen! Mohon aktifkan di pengaturan aplikasi!',
           backgroundColor: Colors.red,
         );
+        setState(() => isLoadingLocation = false);
+        return;
       }
 
       Position position = await Geolocator.getCurrentPosition(

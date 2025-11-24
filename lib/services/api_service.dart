@@ -5,28 +5,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 
 class ApiService {
-  // ✅ Gunakan dari config
   static String get baseUrl => AppConfig.API_BASE_URL;
 
-  // Helper untuk ambil token
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
 
-  // Helper untuk simpan token
   static Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
   }
 
-  // Helper untuk hapus token
   static Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
   }
 
-  // Helper untuk simpan user ID
   static Future<void> _saveUserId(int userId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('user_id', userId);
@@ -213,6 +208,37 @@ class ApiService {
     }
   }
 
+  // ✅ NEW: Update Password
+  static Future<Map<String, dynamic>> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final token = await _getToken();
+      final userId = await _getUserId();
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/profile/update-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        }),
+      );
+
+      print('📤 Update Password Response: ${response.body}');
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('❌ Update password error: $e');
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
   // ========== WORKER ENDPOINTS ==========
 
   static Future<Map<String, dynamic>> getWorkers({
@@ -272,6 +298,36 @@ class ApiService {
 
   // ========== ORDER ENDPOINTS ==========
 
+  // ✅ NEW: Check Availability
+  static Future<Map<String, dynamic>> checkAvailability({
+    required int workerId,
+    required String orderDate,
+    required String timeSlot,
+  }) async {
+    try {
+      final token = await _getToken();
+      final response = await http.post(
+        Uri.parse('$baseUrl/check-availability'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'worker_id': workerId,
+          'order_date': orderDate,
+          'time_slot': timeSlot,
+        }),
+      );
+
+      print('📤 Check Availability Response: ${response.body}');
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('❌ Check availability error: $e');
+      return {'success': false, 'message': 'Error: $e', 'available': false};
+    }
+  }
+
   static Future<Map<String, dynamic>> createOrder({
     required int workerId,
     required String orderDate,
@@ -329,7 +385,7 @@ class ApiService {
     try {
       final token = await _getToken();
       final response = await http.post(
-        Uri.parse('$baseUrl/orders/orderId/status'),
+        Uri.parse('$baseUrl/orders/$orderId/status'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -351,11 +407,9 @@ class ApiService {
   }) async {
     try {
       final token = await _getToken();
-
-      // ✅ FIX: Proper URL construction
       final url = '$baseUrl/orders/$orderId/photo-before';
 
-      print('📤 Uploading to: $url'); // Debug
+      print('📤 Uploading to: $url');
 
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
@@ -380,11 +434,9 @@ class ApiService {
   }) async {
     try {
       final token = await _getToken();
-
-      // ✅ FIX: Proper URL construction
       final url = '$baseUrl/orders/$orderId/photo-after';
 
-      print('📤 Uploading to: $url'); // Debug
+      print('📤 Uploading to: $url');
 
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
@@ -411,7 +463,6 @@ class ApiService {
     try {
       final token = await _getToken();
       final response = await http.post(
-        // ✅ FIX: URL yang benar
         Uri.parse('$baseUrl/orders/$orderId/review'),
         headers: {
           'Content-Type': 'application/json',
@@ -431,7 +482,8 @@ class ApiService {
     }
   }
 
-// ========== GAMIFICATION ENDPOINTS ==========
+  // ========== GAMIFICATION ENDPOINTS ==========
+
   static Future<Map<String, dynamic>> shakeForPoints() async {
     try {
       final token = await _getToken();
@@ -548,6 +600,7 @@ class ApiService {
   }
 
   // ========== REVIEW ENDPOINTS ==========
+
   static Future<Map<String, dynamic>> getWorkerReviews(int workerId) async {
     try {
       final token = await _getToken();

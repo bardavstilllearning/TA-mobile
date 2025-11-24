@@ -18,14 +18,14 @@ class TimezoneData {
   final String code;
   final String name;
   final String label;
-  final IconData icon;
+  final String flag;
   final Color color;
 
   const TimezoneData({
     required this.code,
     required this.name,
     required this.label,
-    required this.icon,
+    required this.flag,
     required this.color,
   });
 }
@@ -45,38 +45,38 @@ const List<CurrencyData> currencies = [
 const List<TimezoneData> timezones = [
   TimezoneData(
     code: 'Asia/Jakarta',
-    name: 'Western Indonesia Time',
+    name: 'Indonesia (Jakarta)',
     label: 'WIB (UTC+7)',
-    icon: Icons.wb_sunny,
-    color: Color(0xFFFF9800),
+    flag: '🇮🇩',
+    color: Color(0xFFFF0000),
   ),
   TimezoneData(
     code: 'Asia/Makassar',
-    name: 'Central Indonesia Time',
+    name: 'Indonesia (Makassar)',
     label: 'WITA (UTC+8)',
-    icon: Icons.wb_twilight,
-    color: Color(0xFFFF5722),
+    flag: '🇮🇩',
+    color: Color(0xFFFF0000),
   ),
   TimezoneData(
     code: 'Asia/Jayapura',
-    name: 'Eastern Indonesia Time',
+    name: 'Indonesia (Jayapura)',
     label: 'WIT (UTC+9)',
-    icon: Icons.nights_stay,
-    color: Color(0xFF3F51B5),
+    flag: '🇮🇩',
+    color: Color(0xFFFF0000),
   ),
   TimezoneData(
     code: 'America/New_York',
-    name: 'Eastern Standard Time',
+    name: 'United States',
     label: 'EST (UTC-5)',
-    icon: Icons.public,
-    color: Color(0xFF2196F3),
+    flag: '🇺🇸',
+    color: Color(0xFF3C3B6E),
   ),
   TimezoneData(
     code: 'Europe/London',
-    name: 'Greenwich Mean Time',
+    name: 'United Kingdom',
     label: 'GMT (UTC+0)',
-    icon: Icons.access_time,
-    color: Color(0xFF9C27B0),
+    flag: '🇬🇧',
+    color: Color(0xFF012169),
   ),
 ];
 
@@ -375,10 +375,11 @@ void showTimezonePicker({
                             : timezone.color.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        timezone.icon,
-                        color: isSelected ? Colors.white : timezone.color,
-                        size: 28,
+                      child: Center(
+                        child: Text(
+                          timezone.flag, // ✅ Show flag emoji
+                          style: const TextStyle(fontSize: 32),
+                        ),
                       ),
                     ),
                     title: Text(
